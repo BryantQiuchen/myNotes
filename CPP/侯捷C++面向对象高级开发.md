@@ -81,7 +81,7 @@ initialization list 构造函数特有的写法 `re(r), im(i)`
 
 `c2.func(c1)` 两个为相同的 class，可以直接调用
 
-![截屏2022-04-01 下午4.24.53](/Users/ryan/Documents/notes/images/cppNotes/截屏2022-04-01 下午4.24.53.png)
+![截屏2022-04-01 下午4.24.53](侯捷C++面向对象高级开发.assets/截屏2022-04-01 下午4.24.53.png)
 
 ## operator overloading（操作符重载1，成员函数） ==this==
 

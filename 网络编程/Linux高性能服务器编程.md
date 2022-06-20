@@ -73,7 +73,7 @@ void _exit(int status); // unix 系统函数
 
 status 参数：进程退出时的状态信息。父进程回收子进程资源时可以获取到。
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-12 下午2.04.32.png" alt="截屏2022-05-12 下午2.04.32" style="zoom: 33%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-12 下午2.04.32.png" alt="截屏2022-05-12 下午2.04.32" style="zoom: 33%;" />
 
 
 
@@ -164,7 +164,7 @@ pid_t waitpid(pid_t pid, int *wstatus, int options);
 
 Linux 进程间通信的方式：
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-13 上午9.53.00.png" alt="截屏2022-05-13 上午9.53.00" style="zoom:30%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-13 上午9.53.00.png" alt="截屏2022-05-13 上午9.53.00" style="zoom:30%;" />
 
 ## 匿名管道
 
@@ -265,7 +265,7 @@ int mkfifo(const char *pathname, mode_t mode);
 
 > 内存映射（Memory-mapped I/O）是将磁盘文件的数据映射到内存，用户通过修改内存就能修改磁盘文件。
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-13 下午1.58.01.png" alt="截屏2022-05-13 下午1.58.01" style="zoom:50%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-13 下午1.58.01.png" alt="截屏2022-05-13 下午1.58.01" style="zoom:50%;" />
 
 ```c
 #include <sys/mman.h>
@@ -818,7 +818,7 @@ int pthread_attr_setdetachstate(pthread_attr_t *attr, int detachstate);
 
 - 如果多个线程试图执行这一块代码（一个临界区），事实上只有一个线程能够持有该互斥量（其他线程将遭到阻塞），即同时只有一个线程能够进入这段代码区域，如下图所示：
 
-    <img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-06 上午10.41.37.png" alt="截屏2022-05-06 上午10.41.37" style="zoom:50%;" />
+    <img src="Linux高性能服务器编程.assets/截屏2022-05-06 上午10.41.37.png" alt="截屏2022-05-06 上午10.41.37" style="zoom:50%;" />
 
     互斥量的类型 `pthread_mutex_t`
 
@@ -853,7 +853,7 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex);
     - **重复加锁**
     - **多线程多锁，抢占锁资源**
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-06 下午2.48.53.png" alt="截屏2022-05-06 下午2.48.53" style="zoom:50%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-06 下午2.48.53.png" alt="截屏2022-05-06 下午2.48.53" style="zoom:50%;" />
 
 ## 读写锁
 
@@ -1125,7 +1125,7 @@ const char *inet_ntop(int af, const void *src, char *dst, socklen_t size);
 
 ## TCP 通信流程
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-09 上午9.28.19.png" alt="截屏2022-05-09 上午9.28.19" style="zoom: 50%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-09 上午9.28.19.png" alt="截屏2022-05-09 上午9.28.19" style="zoom: 50%;" />
 
 服务器端（被动连接的角色）：
 
@@ -1262,7 +1262,7 @@ ssize_t read(int fd, void *buf, size_t count); // 读数据
 
 ## TCP 三次握手
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-09 下午12.09.09.png" alt="截屏2022-05-09 下午12.09.09" style="zoom:40%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-09 下午12.09.09.png" alt="截屏2022-05-09 下午12.09.09" style="zoom:40%;" />
 
 第一次握手：
 
@@ -1283,7 +1283,7 @@ ssize_t read(int fd, void *buf, size_t count); // 读数据
 
 ## TCP 四次挥手
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-09 下午1.47.04.png" alt="截屏2022-05-09 下午1.47.04" style="zoom: 50%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-09 下午1.47.04.png" alt="截屏2022-05-09 下午1.47.04" style="zoom: 50%;" />
 
 四次挥手发生在断开连接时，在程序中当调用了`close()`会使用 TCP 协议进行四次挥手。
 
@@ -1422,7 +1422,7 @@ int poll(struct poofd *fds, nfds_t nfds, int timeout);
    - -1 失败
    - 大于0 (n) 成功,n表示检测到集合中有n个文件描述符发生变化
 
-![截屏2022-05-11 上午11.04.36](/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-11 上午11.04.36.png)
+![截屏2022-05-11 上午11.04.36](Linux高性能服务器编程.assets/截屏2022-05-11 上午11.04.36.png)
 
 ### epoll
 
@@ -1536,7 +1536,7 @@ epoll 检测事件设置为 EPOLLET
 
 ## UDP通信
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-11 下午4.13.33.png" alt="截屏2022-05-11 下午4.13.33" style="zoom:40%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-11 下午4.13.33.png" alt="截屏2022-05-11 下午4.13.33" style="zoom:40%;" />
 
 ```c
 #include <sys/types.h> 
@@ -1670,31 +1670,31 @@ bind(lfd, addr, len);
 
 在处理 IO 的时候，阻塞和非阻塞都是同步 IO，只有使用了特殊的 API 才是异步 IO。
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-16 下午3.28.39.png" alt="截屏2022-05-16 下午3.28.39" style="zoom:50%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-16 下午3.28.39.png" alt="截屏2022-05-16 下午3.28.39" style="zoom:50%;" />
 
 ### 阻塞 blocking
 
 调用者调用了某个函数，等待这个函数返回，期间什么也不做，不停的去检查这个函数有没有返回，必须等这个函数返回才能进行下一步动作。
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-16 下午3.18.10.png" alt="截屏2022-05-16 下午3.18.10" style="zoom:50%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-16 下午3.18.10.png" alt="截屏2022-05-16 下午3.18.10" style="zoom:50%;" />
 
 ### 非阻塞 non-blocking (NIO)
 
 非阻塞等待，每隔一段时间去检测 I/O 事件是否就绪，没有就绪就可以做其他事，非阻塞 I/O 执行系统调用总是返回，不管事件是否已经发生，若事件没有发生，则返回 -1，此时可以根据 errno 区分这两种情况，对于 accept，recv 和 send，事件未发生时，errno 通常被设置成 EAGAIN。
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-16 下午3.29.46.png" alt="截屏2022-05-16 下午3.29.46" style="zoom:50%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-16 下午3.29.46.png" alt="截屏2022-05-16 下午3.29.46" style="zoom:50%;" />
 
 ### I/O 复用
 
 Linux 用 select/poll/epoll 函数实现 IO 复用模型，这些函数也会使进程阻塞，但是和阻塞 IO 所不同的是这些函数可以同时阻塞多个 IO 操作。而且可以同时对多个读操作、写操作的 IO 函数进行检测。直到有数据可读或可写时，才真正调用 IO 操作函数。
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-16 下午3.35.53.png" alt="截屏2022-05-16 下午3.35.53" style="zoom:50%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-16 下午3.35.53.png" alt="截屏2022-05-16 下午3.35.53" style="zoom:50%;" />
 
 ### 信号驱动
 
 Linux 用套接口进行信号驱动 IO，安装一个信号处理函数，进程继续运行并不阻塞，当IO事件就绪，进程收到SIGIO 信号，然后处理 IO 事件。
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-16 下午3.40.11.png" alt="截屏2022-05-16 下午3.40.11" style="zoom:50%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-16 下午3.40.11.png" alt="截屏2022-05-16 下午3.40.11" style="zoom:50%;" />
 
 内核在第一个阶段是异步，第二个阶段是同步；与非阻塞IO的区别在于它提供了消息通知机制，不需要用户进程不断的轮询检查，减少了系统API的调用次数，提高了效率。
 
@@ -1702,11 +1702,11 @@ Linux 用套接口进行信号驱动 IO，安装一个信号处理函数，进�
 
 Linux中，可以调用 aio_read 函数告诉内核描述字缓冲区指针和缓冲区的大小、文件偏移及通知的方式，然后立即返回，当内核将数据拷贝到缓冲区后，再通知应用程序。
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-16 下午3.59.20.png" alt="截屏2022-05-16 下午3.59.20" style="zoom:50%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-16 下午3.59.20.png" alt="截屏2022-05-16 下午3.59.20" style="zoom:50%;" />
 
 ## 服务器基础编程框架
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-16 下午4.57.18.png" alt="截屏2022-05-16 下午4.57.18" style="zoom:50%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-16 下午4.57.18.png" alt="截屏2022-05-16 下午4.57.18" style="zoom:50%;" />
 
 模块及其功能：
 
@@ -1725,7 +1725,7 @@ Linux中，可以调用 aio_read 函数告诉内核描述字缓冲区指针和�
 
 #### Reactor模式的工作流程
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-17 上午10.48.14.png" alt="截屏2022-05-17 上午10.48.14" style="zoom:50%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-17 上午10.48.14.png" alt="截屏2022-05-17 上午10.48.14" style="zoom:50%;" />
 
 1. 主线程往 epoll 内核事件表中注册 socket 上的读就绪事件。
 2. 主线程调用 epoll_wait 等待 socket 上有数据可读。
@@ -1741,7 +1741,7 @@ Linux中，可以调用 aio_read 函数告诉内核描述字缓冲区指针和�
 
 #### Proactor 模式的工作流程：
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-17 上午11.11.32.png" alt="截屏2022-05-17 上午11.11.32" style="zoom:50%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-17 上午11.11.32.png" alt="截屏2022-05-17 上午11.11.32" style="zoom:50%;" />
 
 1. 主线程调用 aio_read 函数向内核注册 socket 上的读完成事件，并告诉内核用户读缓冲区的位置，以及读操作完成时如何通知应用程序（这里以信号为例）。
 2. 主线程继续处理其他逻辑。
@@ -1757,7 +1757,7 @@ Linux中，可以调用 aio_read 函数告诉内核描述字缓冲区指针和�
 
 #### 模拟 Proactor 模式的工作流程
 
-<img src="/Users/ryan/Documents/notes/images/Linux网络编程/截屏2022-05-17 下午1.33.50.png" alt="截屏2022-05-17 下午1.33.50" style="zoom:50%;" />
+<img src="Linux高性能服务器编程.assets/截屏2022-05-17 下午1.33.50.png" alt="截屏2022-05-17 下午1.33.50" style="zoom:50%;" />
 
 1. 主线程往 epoll 内核事件表中注册 socket 上的读就绪事件。
 2. 主线程调用 epoll_wait 等待 socket 上有数据可读。
