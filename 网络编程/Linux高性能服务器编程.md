@@ -1322,7 +1322,7 @@ int setsockopt(int sockfd, int level, int optname, const void *optval, socklen_t
 
 端口复用设置在服务器绑定之前。
 
-### I/O 复用
+## I/O 复用
 
 ==I/O 多路复用使得程序能同时监听多个文件描述符==，能够提高程序的性能，Linux 下实现 I/O 多路复用的系统调用主要有 `select`、`poll` 和 `epoll`。
 
@@ -1496,7 +1496,7 @@ int epoll_wait(int epfd, struct epoll_event *events, int maxevents, int timeout)
         - 成功 返回文件描述符就绪的个数
         - 失败 -1
 
-#### 工作模式
+**工作模式**
 
 **LT 模式**
 
