@@ -1042,7 +1042,7 @@ struct sockaddr_storage
 typedef unsigned short int sa_family_t;
 ```
 
-### ==专用 socket 地址==
+### 专用 socket 地址
 
 TCP/IP 协议族有`sockaddr_in`（主要使用）和`sockaddr_in6`两个专用的 socket 地址结构体，它们分别用于 IPv4 和 IPv6：
 
