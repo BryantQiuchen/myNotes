@@ -231,17 +231,17 @@ for (int i = 0, j = 0; i < n; ++i) {
 
 ## 离散化
 
+[Acwing802.区间和](题解/acwing802区间和.md)
+
 ```c++
 vector<int> alls; // 存储所有待离散化的值
 sort(alls.begin(), alls.end()); // 将所有值排序
 alls.erase(unique(alls.begin(), alls.end()), alls.end());   // 去掉重复元素
 
-// 二分求出x对应的离散化的值
-int find(int x) // 找到第一个大于等于x的位置
-{
+// 二分求出x对应的离散化的值, 找到第一个大于等于x的位置
+int find(int x) {
     int l = 0, r = alls.size() - 1;
-    while (l < r)
-    {
+    while (l < r) {
         int mid = l + r >> 1;
         if (alls[mid] >= x) r = mid;
         else l = mid + 1;
@@ -254,126 +254,145 @@ int find(int x) // 找到第一个大于等于x的位置
 
 ```cpp
 // 将所有存在交集的区间合并
-void merge(vector<PII> &segs)
-{
+void merge(vector<PII> &segs) {
     vector<PII> res;
 
     sort(segs.begin(), segs.end());
 
     int st = -2e9, ed = -2e9;
-    for (auto seg : segs)
-        if (ed < seg.first)
-        {
+    for (auto seg : segs) {
+        if (ed < seg.first) {
             if (st != -2e9) res.push_back({st, ed});
             st = seg.first, ed = seg.second;
+        } else {
+            ed = max(ed, seg.second);
         }
-        else ed = max(ed, seg.second);
-
+    }
     if (st != -2e9) res.push_back({st, ed});
 
     segs = res;
 }
 ```
 
-
-
 # 数据结构
 
-## 单链表
+## 链表
+
+### 单链表
+
+用数组构建单链表
 
 ```cpp
-// 用数组构建单链表
-// head存储链表头，e[]存储节点的值，ne[]存储节点的next指针，idx表示当前用到了哪个节点
+/**
+ * @param head : 存储链表头
+ * @param e[]  : 存储节点的值
+ * @param ne[] : 存储节点的next指针
+ * @param idx  : 表示当前可用的节点是哪个
+ */
 int head, e[N], ne[N], idx;
 
 // 初始化
-void init()
-{
+void init() {
     head = -1;
     idx = 0;
 }
 
 // 在链表头插入一个数a
-void add_to_head(int a)
-{
-    e[idx] = a, ne[idx] = head, head = idx ++ ;
+void addToHead(int a) {
+    e[idx] = a, ne[idx] = head, head = idx++;
+}
+
+// 第k个插入的数后面插入一个数x
+void addTok(int k, int x) {
+    e[idx] = x, ne[idx] = ne[k], ne[k] = idx++;
 }
 
 // 将头结点删除，需要保证头结点存在
-void remove()
-{
+void remove() {
     head = ne[head];
 }
 
+// 将下标是k的点后面的点删掉
+void remove(int k) {
+    ne[k] = ne[ne[k]];
+}
+
 // 打印链表
-for (int i = head; i != -1; i = ne[i]) cout << e[i] << ' ';
+for (int i = head; i != -1; i = ne[i]) 
+    cout << e[i] << ' ';
 ```
 
-## 双链表
+### 双链表
 
 ```cpp
-// e[]表示节点的值，l[]表示节点的左指针，r[]表示节点的右指针，idx表示当前用到了哪个节点
+/**
+ * @param e[] : 存储节点的值
+ * @param l[] : 节点的左指针
+ * @param r[] : 节点的右指针
+ * @param idx : 表示当前可用的节点是哪个
+ */
 int e[N], l[N], r[N], idx;
 
 // 初始化，导致第a个插入元素的下标为：a + 1
-void init()
-{
-    //0是左端点，1是右端点
+void init() {
+    // 0是左端点，1是右端点，两个边界
     r[0] = 1, l[1] = 0;
     idx = 2;
 }
 
-// 在节点a的右边插入一个数x
-void insert(int a, int x)
-{
+// 在下标k的右边插入一个数x
+void insert(int k, int x) {
     e[idx] = x;
-    l[idx] = a, r[idx] = r[a];
-    l[r[a]] = idx, r[a] = idx ++ ;
+    l[idx] = k, r[idx] = r[k];
+    l[r[k]] = idx, r[k] = idx++;
 }
 
-// 删除节点a
-void remove(int a)
-{
-    l[r[a]] = l[a];
-    r[l[a]] = r[a];
+// 删除节点k
+void remove(int k) {
+    l[r[k]] = l[k];
+    r[l[k]] = r[k];
 }
 ```
 
-## 数组模拟栈
+## 栈
+
+[Acwing3302.表达式求值](题解/acwing3302表达式求值.md)
+
+### 数组模拟栈
 
 ```cpp
 // tt表示栈顶
 int stk[N], tt = 0;
 
 // 向栈顶插入一个数
-stk[ ++ tt] = x;
+stk[++tt] = x;
 
 // 从栈顶弹出一个数
-tt -- ;
+tt--;
 
 // 栈顶的值
 stk[tt];
 
 // 判断栈是否为空
-if (tt > 0)
-{
-
-}
+if (tt > 0) not empty
+else empty
 ```
 
-## 单调栈
+### 单调栈
+
+常见模型：找出每个数左边离它最近的比它大/小的数是多少。
 
 ```cpp
-// 常见模型：找出每个数左边离它最近的比它大/小的数
 int tt = 0;
-for (int i = 1; i <= n; i ++ )
-{
-    while (tt && check(stk[tt], i)) tt -- ;
-    stk[ ++ tt] = i;
+for (int i = 1; i <= n; ++i) {
+    while (tt && check(stk[tt], i)) tt--;
+    stk[++tt] = i;
 }
 ```
 
-## 数组模拟队列
+## 队列
+
+### 数组模拟队列
 
 ```cpp
 // 普通队列
@@ -381,26 +400,29 @@ for (int i = 1; i <= n; i ++ )
 int q[N], hh = 0, tt = -1;
 
 // 向队尾插入一个数
-q[ ++ tt] = x;
+q[++tt] = x;
 
 // 从队头弹出一个数
-hh ++ ;
+hh++;
 
 // 队头的值
 q[hh];
 
+// 队尾的值
+q[tt];
+
 // 判断队列是否为空
-if (hh <= tt)
-{
+if (hh <= tt) not empty
+else empty
+```
 
-}
+### 循环队列
 
-// 循环队列
+```cpp
 // hh 表示队头，tt表示队尾的后一个位置
 int q[N], hh = 0, tt = 0;
-
 // 向队尾插入一个数
-q[tt ++ ] = x;
+q[tt++] = x;
 if (tt == N) tt = 0;
 
 // 从队头弹出一个数
@@ -411,52 +433,46 @@ if (hh == N) hh = 0;
 q[hh];
 
 // 判断队列是否为空
-if (hh != tt)
-{
-
-}
+if (hh != tt) not empty
+else empty
 ```
 
-## 单调队列
+### 单调队列
+
+常见模型：找出滑动窗口中的最大值/最小值
 
 ```cpp
-// 常见模型：找出滑动窗口中的最大值/最小值
 int hh = 0, tt = -1;
-for (int i = 0; i < n; i ++ )
-{
-    while (hh <= tt && check_out(q[hh])) hh ++ ;  // 判断队头是否滑出窗口
-    while (hh <= tt && check(q[tt], i)) tt -- ;
-    q[ ++ tt] = i;
+for (int i = 0; i < n; ++i) {
+    while (hh <= tt && check_out(q[hh])) hh++;  // 判断队头是否滑出窗口
+    while (hh <= tt && check(q[tt], i)) tt--;
+    q[++tt] = i;
 }
 ```
 
 ## KMP算法
 
-```cpp
-// 常用字符串匹配
-// s[]是长文本，p[]是模式串，n是s的长度，m是p的长度
-// 构造next[]数组，用ne[]表示
-for (int i = 1, j = 0; i < n; i ++ )
-{
-	while (j > 0 && p[i] != p[j]) j = ne[j - 1];
-	if (p[i] == p[j]) j++;
-    ne[i] = j;
-}
-// 文本串匹配的过程
-for (int i = 0, j = 0; i < m; i ++ )
-{
-    while (j > 0 && s[i] != p[j]) j = ne[j - 1];
+常用于字符串匹配
 
-	if (s[i] == p[j]) j ++ ;
-    if (j == n) 
-   	{
-		printf("%d ", i - n + 1);
-        j == ne [j - 1];
+```cpp
+// s[]是文本串，p[]是模式串，n是s的长度，m是p的长度
+
+// 构造next[]数组，用ne[]表示，求next数组的过程：
+for (int i = 2, j = 0; i <= n; ++i) {
+	while (j && p[i] != p[j+1]) j = ne[j];
+	if (p[i] == p[j+1]) ++j;
+	ne[i] = j;
+}
+// 匹配过程
+for (int i = 1, j = 0; i <= m; ++i) {
+	while (j && s[i] != p[j+1]) j = ne[j];
+	if (s[i] == p[j+1]) j++;
+	if (j == n) {
+		// 匹配成功
+		cout << i - n << ' ';
+		j = ne[j];
     }
 }
 ```
-
-
-
 
 
