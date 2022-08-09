@@ -475,4 +475,181 @@ for (int i = 1, j = 0; i <= m; ++i) {
 }
 ```
 
+## Trie树
+
+[Acwing143.最大异或对](题解/acwing143最大异或对.md)
+
+高效地存储和查找字符串集合的数据结构
+
+```cpp
+int son[N][26], cnt[N], idx;
+// 0号点既是根节点，又是空节点
+// son[][]存储树中每个节点的子节点(假设只有小写字母)
+// cnt[]存储以每个节点结尾的单词数量
+
+// 插入一个字符串
+void insert(char str[]){
+    int p = 0;
+    for (int i = 0; str[i]; ++i) {
+        int u = str[i] - 'a';
+        if (!son[p][u]) son[p][u] = ++idx;
+        p = son[p][u];
+    }
+    cnt[p]++;
+}
+
+// 查询字符串出现的次数
+int query(char str[]) {
+    int p = 0;
+    for (int i = 0; str[i]; ++i) {
+        int u = str[i] - 'a';
+        if (!son[p][u]) return 0;
+        p = son[p][u];
+    }
+    return cnt[p];
+}
+```
+
+## 并查集
+
+### 朴素并查集
+
+```cpp
+int p[N]; // 存储每个点的祖宗节点
+
+// 初始化，假定节点编号是1~n
+for (int i = 1; i <= n; ++i) p[i] = i;
+
+// 返回x的祖宗节点，做了路径压缩操作
+int find(int x) {
+	if (p[x] != x) p[x] = find(p[x]);
+	return p[x];
+}
+
+// 合并a和b所在的两个集合：
+p[find(a)] = find(b);
+```
+
+### 维护size的并查集
+
+```cpp
+// p[]存储每个点的祖宗节点
+// cnt[]只有祖宗节点的有意义，表示祖宗节点所在集合中的点的数量
+int p[N], cnt[N]; 
+
+// 返回x的祖宗节点
+int find(int x) {
+	if (p[x] != x) p[x] = find(p[x]);
+    return p[x];
+}
+
+// 初始化，假定节点编号是1~n
+for (int i = 1; i <= n; ++i) {
+	p[i] = i;
+	cnt[i] = 1;
+}
+
+// 合并a和b所在的两个集合：
+cnt[find(b)] += cnt[find(a)];
+p[find(a)] = find(b);
+```
+
+### 维护到祖宗节点距离的并查集
+
+```cpp
+// p[]存储每个点的祖宗节点
+// d[x]存储x到p[x]的距离
+int p[N], d[N];
+
+// 返回x的祖宗节点
+int find(int x) {
+	if (p[x] != x) {
+		int u = find(p[x]);
+        d[x] += d[p[x]];
+        p[x] = u;
+	}
+        return p[x];
+}
+
+// 初始化，假定节点编号是1~n
+for (int i = 1; i <= n; ++i) {
+	p[i] = i;
+	d[i] = 0;
+}
+
+// 合并a和b所在的两个集合：
+p[find(a)] = find(b);
+d[find(a)] = distance; // 根据具体问题，初始化find(a)的偏移量
+```
+
+## 堆
+
+小根堆：
+
+```cpp
+// h[N]存储堆中的值, h[1]是堆顶，x的左儿子是2x, 右儿子是2x + 1
+int h[N], cnt;
+
+void down(int u) {
+    int t = u;
+    if (u * 2 <= size && h[u*2] < h[t]) t = u * 2;
+    if (u * 2 + 1 <= size && h[u*2+1] < h[t]) t = u * 2 + 1;
+    if (u != t) {
+        heap_swap(u, t);
+        down(t);
+    }
+}
+
+void up(int u) {
+    while (u / 2 && h[u] < h[u/2]) {
+        heap_swap(u, u / 2);
+        u >>= 1;
+    }
+}
+
+// O(n)建堆
+for (int i = n / 2; i; --i) down(i);
+```
+
+## 哈希
+
+### 拉链法
+
+```cpp
+int h[N], e[N], ne[N], idx;
+
+// 向哈希表中插入一个数
+void insert(int x){
+    int k = (x % N + N) % N;
+    e[idx] = x;
+    ne[idx] = h[k];
+    h[k] = idx++;
+}
+
+// 在哈希表中查询某个数是否存在
+bool find(int x) {
+    int k = (x % N + N) % N;
+    for (int i = h[k]; i != -1; i = ne[i])
+        if (e[i] == x)
+			return true;
+
+	return false;
+}
+```
+
+### 开放寻址法
+
+```cpp
+int h[N];
+
+// 如果x在哈希表中，返回x的下标；如果x不在哈希表中，返回x应该插入的位置
+int find(int x) {
+	int t = (x % N + N) % N;
+    while (h[t] != null && h[t] != x) {
+        t++;
+        if (t == N) t = 0;
+    }
+    return t;
+}
+```
 
