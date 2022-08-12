@@ -854,8 +854,8 @@ map<string, int> hash;
 map<pair<int, int>, vector<int>> test;
 ```
 
-- `size/empty/clear/begin/end`均与 set类 似。
-- `insert / earse`与 set 类似，但其参数均是 `pair<key_type, value_type>`
+- `size/empty/clear/begin/end`均与 `set` 类似。
+- `insert / earse`与 `set` 类似，但其参数均是 `pair<key_type, value_type>`
 - `h.find(x) `在变量名为 h 的 map 中查找 key 为 x 的二元组。
 - []操作符，`h[key]` 返回key映射的value的引用，时间复杂度为$O(logn)$。可以通过`h[key]`得到`key`对应的`value`，还可以对`h[key]`进行赋值操作，改变`key`对应的`value`
 - `lower_bound/upper_bound`
@@ -883,4 +883,98 @@ bitset(10000) s;
 - `flip()` 等价与`~` `flip(k)`第k位
 
 # 搜索与图论
+
+## 树和图的存储
+
+树是一种特殊的图，与图的存储方式相同。
+对于无向图中的边ab，存储两条有向边a->b, b->a。
+因此我们可以只考虑有向图的存储，有两种存储的方式：邻接矩阵和邻街表，一般是用邻接表，适合稀疏图的存储。
+
+### 邻接矩阵
+
+开二维数组，`g[a][b]` 表示图中的一条边 a->b，适合稠密图。
+
+### 邻接表
+
+```cpp
+// 对于每个点k，开一个单链表，存储k所有可以走到的点。
+// h[k]存储这个单链表的头结点
+int h[N], e[M], ne[M], idx;
+
+// 添加一条边a->b
+void add(int a, int b) {
+    e[idx] = b, ne[idx] = h[a], h[a] = idx++;
+}
+
+// 初始化
+idx = 0;
+memset(h, -1, sizeof h);
+```
+
+## 树与图的遍历
+
+### 深度优先遍历
+
+```cpp
+void dfs(int u) {
+    st[u] = true; // st[u] 表示点u已经被遍历过
+
+    for (int i = h[u]; i != -1; i = ne[i]) {
+        int j = e[i];
+        if (!st[j]) dfs(j);
+    }
+}
+```
+
+### 宽度优先遍历
+
+当边权是1，那么BFS可以找到最短路
+
+```cpp
+queue<int> q;
+st[1] = true; // 表示1号点已经被遍历过
+q.push(1);
+
+while (q.size()) {
+    int t = q.front();
+    q.pop();
+
+    for (int i = h[t]; i != -1; i = ne[i]) {
+        int j = e[i];
+        if (!st[j]) {
+            st[j] = true; // 表示点j已经被遍历过
+            q.push(j);
+        }
+    }
+}
+```
+
+## 拓扑排序
+
+时间复杂度 $O(n+m)$, $n$ 表示点数，$m$ 表示边数
+
+```cpp
+q[N]; // 数组模拟的队列，如果存在拓扑序，那么就存在q[0]~q[n-1]中
+
+bool topsort(){
+    int hh = 0, tt = -1;
+    for (int i = 1; i <= n; ++i)
+        if (!d[i])
+            q[++tt] = i;
+
+    while (hh <= tt) {
+        int t = q[hh++];
+
+        for (int i = h[t]; i != -1; i = ne[i]) {
+            int j = e[i];
+            d[j]--;
+            if (d[j] == 0) {
+                q[++tt] = j;
+            }
+        }
+    }
+    // 如果所有点都入队了，说明存在拓扑序列；否则不存在拓扑序列
+    return tt == n - 1;
+}
+```
 
