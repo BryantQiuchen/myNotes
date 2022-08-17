@@ -63,6 +63,14 @@ int swapcontext(ucontext_t *oucp, ucontext_t *ucp);
 
 ## netco 框架
 
+框架
+
+![截屏2022-08-17 17.32.13](cpp_co网络协程库.assets/截屏2022-08-17 17.32.13.png)
+
+netco 根据计算机的核心数开对应的线程数运行协程，其中每一个线程对应一个 Processor 实例，协程 Coroutine 实例运行在 Processor 的主循环中，Processor 使用 epoll 和定时器 timer 进行任务调度。而 Scheduler 则并不存在一个循环，它是一个全局单例，当某个线程中调用 co_go() 运行一个新协程后，实际会调用该实例的方法，选择一个协程最少的 Processor 接管新的协程，也可以指定具体某一个Processor来接管新的协程。
+
+类图：
+
 ![截屏2022-07-12 15.50.44](cpp_co网络协程库.assets/截屏2022-07-12 15.50.44.png)
 
 ### context
