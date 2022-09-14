@@ -106,7 +106,7 @@ logAndProcess(std::move(w));    //用右值调用
 - `std::forward` 只有当它的参数被绑定到一个右值时，才将参数转换为右值；
 - `std::move` 和 `std::forward` 在运行期什么也不做。
 
-## Item24:区分通用引用和右值引用
+## Item 24: 区分通用引用和右值引用
 
 带 `&&` 的不一定是右值引用，这种不确定类型的引用被称为转发引用：
 
@@ -197,4 +197,260 @@ void f(T x) {
 - 如果类型声明的形式不是标准的 `type&&`，或者如果类型推导没有发生，那么 `type&&` 代表一个右值引用。
 - 通用引用，如果它被右值初始化，就会对应地成为右值引用；如果它被左值初始化，就会成为左值引用。
 
-## Item25:对右值引用使用 `std::move`，对通用引用使用 `std::forward`
+## Item 25: 对右值引用使用 `std::move`，对通用引用使用 `std::forward`
+
+右值引用仅绑定可以移动的对象，使用 `std::move`，而通用引用使用右值初始化时，使用 `std::forward`
+
+```c++
+class A {
+ public:
+  A(A&& rhs) : s(std::move(rhs.s)), p(std::move(rhs.p)) {}
+
+  template <typename T>
+  void f(T&& x) {
+    s = std::forward<T>(x);
+  }
+
+ private:
+  std::string s;
+  std::shared_ptr<int> p;
+};
+```
+
+- 当把右值引用转发给其他函数时，右值引用应该被**无条件转换**为右值（通过 `std::move`），因为它们**总是**绑定到右值；
+
+- 当转发通用引用时，通用引用应该**有条件地转换**为右值（通过 `std::forward`），因为它们只是**有时**绑定到右值。
+
+如果希望只有在移动构造函数保证不抛出异常时，才转为右值，可以使用 `std::move_if_noexcept` 替代 `std::move`。
+
+```c++
+class A {
+ public:
+  A() = default;
+  A(const A&) { std::cout << 1; }
+  A(A&&) { std::cout << 2; }
+};
+
+class B {
+ public:
+  B() {}
+  B(const B&) noexcept { std::cout << 3; }
+  B(B&&) noexcept { std::cout << 4; }
+};
+
+int main() {
+  A a;
+  A a2 = std::move_if_noexcept(a);  // 1
+  B b;
+  B b2 = std::move_if_noexcept(b);  // 4
+}
+```
+
+如果返回对象传入时是右值引用或转发引用，在返回时要用 `std::move` 或 `std::forward` 转换，返回类型不需要声明为引用，按值传递即可：
+
+```c++
+A f(A&& a) {
+  doSomething(a);
+  return std::move(a);
+}
+
+template <typename T>
+A g(T&& x) {
+  doSomething(x);
+  return std::forward<T>(x);
+}
+```
+
+返回局部变量时，不需要使用 `std::move` 来进行优化，局部变量会直接创建在为返回值分配的内存上，从而避免拷贝，这就是 C++ 标准诞生时就有的 RVO（return value optimization），RVO 的要求十分严谨，要求：
+
+1. 局部对象与函数返回值的类型相同；
+2. 返回的就是局部对象本身。
+
+如果对从按值返回的函数返回来的局部对象使用 `std::move`，你并不能帮助编译器（如果不能实行拷贝消除的话，他们必须把局部对象看做右值），而是阻碍其执行优化选项（通过阻止 RVO）。在某些情况下，将 `std::move` 应用于局部变量可能是一件合理的事（即，你把一个变量传给函数，并且知道不会再用这个变量），但是满足 RVO 的 `return` 语句或者返回一个传值形参并不在此列。
+
+使用 `std::move` 反而不满足 RVO 的要求，此外 RVO 只是一种优化，即使编译器不省略拷贝，返回对象也会被作为右值处理：
+
+```c++
+A makeA() { return A{}; }
+
+auto x = makeA();  // 只需要调用一次 A 的默认构造函数
+```
+
+**关键：**
+
+- 最后一次使用时，在右值引用上使用 `std::move`，在通用引用上使用 `std::forward`。
+- 对按值返回的函数要返回的右值引用和通用引用，执行相同的操作。
+- 如果局部对象可以被返回值优化消除，就绝不使用 `std::move` 或者 `std::forward`。
+
+## Item 26: 避免重载通用引用
+
+```c++
+std::multiset<std::string> names;           //全局数据结构
+void logAndAdd(const std::string& name)
+{
+    auto now =                              //获取当前时间
+        std::chrono::system_clock::now();
+    log(now, "logAndAdd");                 
+    names.emplace(name);                    //把name加到全局数据结构中；
+}
+
+std::string petName("Darla");
+logAndAdd(petName);                     //传递左值std::string
+logAndAdd(std::string("Persephone"));	//传递右值std::string
+logAndAdd("Patty Dog");                 //传递字符串字面值
+```
+
+第一个调用中，形参`name` 绑定到变量 `petName`，`name` 是左值，会拷贝到 `names` 中，没有办法避免拷贝。
+
+第二个调用，形参`name` 绑定到右值，原则上可以被移动到 `names` 中，但本次调用时，仍然执行的是拷贝。
+
+第三个调用中，仍有一个 `std::string` 的拷贝开销。
+
+按照 Item 25 的说法，通过 `std::forward` 转发这个引用到 `emplace`：
+
+```c++
+template<typename T>
+void logAndAdd(T&& name)
+{
+    auto now = std::chrono::system_lock::now();
+    log(now, "logAndAdd");
+    names.emplace(std::forward<T>(name));
+}
+
+std::string petName("Darla");           
+logAndAdd(petName);                     //跟之前一样，拷贝左值到multiset
+logAndAdd(std::string("Persephone"));	//移动右值而不是拷贝它
+logAndAdd("Patty Dog");                 //在multiset直接创建std::string
+                                        //而不是拷贝一个临时std::string
+```
+
+这样就效率就高了，但如果需要对 `logAndAdd` 进行重载：
+
+```c++
+std::string nameFromIdx(int idx);   //返回idx对应的名字
+
+void logAndAdd(int idx)             //新的重载
+{
+    auto now = std::chrono::system_lock::now();
+    log(now, "logAndAdd");
+    names.emplace(nameFromIdx(idx));
+}
+```
+
+之后调用都按照预期工作：
+
+```c++
+std::string petName("Darla");           //跟之前一样
+
+logAndAdd(petName);                     //跟之前一样，
+logAndAdd(std::string("Persephone")); 	//这些调用都去调用
+logAndAdd("Patty Dog");                 //T&&重载版本
+
+logAndAdd(22);                          //调用int重载版本
+```
+
+但如果传递给一个 `short` 类型：
+
+```c++
+short nameIdx;
+...								//给nameIdx一个值
+logAndAdd(nameIdx);				//错误
+```
+
+有两个重载的 `logAndAdd`。使用通用引用的那个推导出 `T` 的类型是 `short`，因此可以精确匹配。对于 `int` 类型参数的重载也可以在 `short` 类型提升后匹配成功。根据正常的重载解决规则，精确匹配优先于类型提升的匹配，所以被调用的是通用引用的重载。原因是对于 `short` 类型通用引用重载优先于 `int` 类型的重载。
+
+通用引用几乎可以匹配任何类型，因此应避免对其进行重载，如果在构造函数中使用通用引用，会导致拷贝构造函数不能被正确匹配。
+
+在适当的条件下，C++ 会生成拷贝和移动构造函数，即使类包含了模板化的构造函数，模板函数能实例化产生与拷贝和移动构造函数一样的签名，也在合适的条件范围内。如果拷贝和移动构造被生成：
+
+```c++
+class Person {
+public:
+    template<typename T>            //完美转发的构造函数
+    explicit Person(T&& n)
+    : name(std::forward<T>(n)) {}
+
+    explicit Person(int idx);       //int的构造函数
+
+    Person(const Person& rhs);      //拷贝构造函数（编译器生成）
+    Person(Person&& rhs);           //移动构造函数（编译器生成）
+    …
+};
+
+Person p("Nancy"); 
+auto cloneOfP(p);                   //从p创建新Person；这通不过编译！
+```
+
+试图通过一个 `Person` 实例去创建另一个 `Person`，显然应该调用拷贝构造即可，但是这份代码不是调用拷贝构造函数，而是调用完美转发构造函数。然后，完美转发的函数将尝试使用 `Person` 对象 `p` 初始化 `Person` 的 `std::string` 数据成员，编译器就会报错。其中 `p` 被传递给拷贝构造函数或者完美转发构造函数。调用拷贝构造函数要求在 `p` 前加上 `const` 的约束来满足函数形参的类型，而调用完美转发构造不需要加这些东西。如果传递的对象改为 `const`，会得到不同的结果。
+
+对于继承操作：
+```c++
+class SpecialPerson: public Person {
+public:
+    SpecialPerson(const SpecialPerson& rhs) //拷贝构造函数，调用基类的
+    : Person(rhs)                           //完美转发构造函数！
+    { … }
+
+    SpecialPerson(SpecialPerson&& rhs)      //移动构造函数，调用基类的
+    : Person(std::move(rhs))                //完美转发构造函数！
+    { … }
+};
+```
+
+派生类的拷贝和移动构造函数没有调用基类的拷贝和移动构造函数，而是调用了基类的完美转发构造函数！为了理解原因，要知道派生类将 `SpecialPerson` 类型的实参传递给其基类，然后通过模板实例化和重载解析规则作用于基类 `Person`。最终，代码无法编译，因为 `std::string` 没有接受一个 `SpecialPerson` 的构造函数。
+
+**关键：**
+
+- 对通用引用形参的函数进行重载，通用引用函数的调用机会几乎总会比你期望的多得多。
+- 完美转发构造函数是糟糕的实现，因为对于 non-`const `左值，它们比拷贝构造函数而更匹配，而且会劫持派生类对于基类的拷贝和移动构造函数的调用。
+
+## Item 27: 重载通用引用的替代方案
+
+- **不使用通用引用，改用 `const T&`**
+
+- **传值**：通常在不增加复杂性的情况下提高性能的一种方法是，将按传引用形参替换为按值传递。
+
+```c++
+class Person {
+public:
+    explicit Person(std::string n)  //代替T&&构造函数，
+    : name(std::move(n)) {}         //std::move的使用见条款41
+  
+    explicit Person(int idx)        //同之前一样
+    : name(nameFromIdx(idx)) {}
+    …
+
+private:
+    std::string name;
+};
+```
+
+- 标签分派（tag dispatching)：额外引入一个参数来打破转发引用的万能匹配，*tag dispatch*的重要之处在于它可以允许我们组合重载和通用引用使用，没有 Item 26 中提到的问题。
+
+```c++
+std::multiset<std::string> names;           	//全局数据结构
+template<typename T>                            //非整型实参：添加到全局数据结构中
+void logAndAddImpl(T&& name, std::false_type)	//高亮std::false_type
+{
+    auto now = std::chrono::system_clock::now();
+    log(now, "logAndAdd");
+    names.emplace(std::forward<T>(name));
+}
+
+template<typename T>
+void logAndAdd(T&& name)
+{
+    logAndAddImpl(
+        std::forward<T>(name),
+        std::is_integral<typename std::remove_reference<T>::type>()
+    );
+}
+
+std::string nameFromIdx(int idx);        //与条款26一样，整型实参：查找名字并用它调用logAndAdd
+void logAndAddImpl(int idx, std::true_type) //高亮std::true_type
+{
+  logAndAdd(nameFromIdx(idx)); 
+}
+```
+
+- 使用 `std::enable_if` 在特定条件下禁用模版，

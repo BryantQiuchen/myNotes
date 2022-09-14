@@ -1,2 +1,3 @@
-# myNotes
-Typora notes synchronized with github
+# Notes
+Typora notes synchronized with github.
+

@@ -592,18 +592,11 @@ int h[N], cnt;
 
 void down(int u) {
     int t = u;
-    if (u * 2 <= size && h[u*2] < h[t]) t = u * 2;
-    if (u * 2 + 1 <= size && h[u*2+1] < h[t]) t = u * 2 + 1;
+    if (u * 2 <= cnt && h[u*2] < h[t]) t = u * 2;
+    if (u * 2 + 1 <= cnt && h[u*2+1] < h[t]) t = u * 2 + 1;
     if (u != t) {
-        heap_swap(u, t);
+        swap(h[u], h[t]);
         down(t);
-    }
-}
-
-void up(int u) {
-    while (u / 2 && h[u] < h[u/2]) {
-        heap_swap(u, u / 2);
-        u >>= 1;
     }
 }
 
