@@ -454,3 +454,191 @@ void logAndAddImpl(int idx, std::true_type) //高亮std::true_type
 ```
 
 - 使用 `std::enable_if` 在特定条件下禁用模版，
+
+```c++
+class Person {
+public:
+    template<
+        typename T,
+        typename = typename std::enable_if<
+                       !std::is_same<Person, typename std::decay<T>::type>::value>::type
+    >
+    explicit Person(T&& n);
+    …
+};
+
+
+Person p("Nancy");
+auto cloneOfP(p);       //用左值初始化
+```
+
+## Item 28: 理解引用折叠
+
+引用折叠是 `std::forward` 工作的关键机制，经常能看到这样的使用：
+
+```c++
+template<typename T>
+void f(T&& fParam)
+{
+    …                                   //做些工作
+    someFunc(std::forward<T>(fParam));  //转发fParam到someFunc
+}
+```
+
+这里，`fParam` 是通用引用，`std::forward` 的作用是当	且仅当传给 `f` 的实参为右值时，即 `T` 为非引用类型，才将 `fParam` （左值）转化为一个右值。
+
+引用折叠发现在四种情况下：
+
+- 模版实例化；
+- auto 类型推断；
+- decltype 类型推断；
+- typedef 或 using 别名声明
+
+存在两种类型的引用（左值和右值），所以有四种可能的引用组合（左值的左值，左值的右值，右值的右值，右值的左值）如果一个上下文中允许引用的引用存在（比如，模板的实例化），引用根据规则**折叠**为单个引用：
+
+```
+& + & → &
+& + && → &
+&& + & → &
+&& + && → &&
+```
+
+- 引用折叠发生在四种情况下：模板实例化，`auto `类型推导，`typedef` 与别名声明的创建和使用，`decltype`；
+- 当编译器在引用折叠环境中生成了引用的引用时，结果就是单个引用。有左值引用折叠结果就是左值引用，否则就是右值引用；
+- 通用引用就是在特定上下文的右值引用，上下文是通过类型推导区分左值还是右值，并且发生引用折叠的那些地方。
+
+## Item 29: 移动操作的缺点
+
+在下面几种情况下，C++ 11 的移动语义并无优势：
+
+- **没有移动操作**：要移动的对象没有提供移动操作，所以移动的写法也会变成复制操作。
+- **移动不会更快**：要移动的对象提供的移动操作并不比复制速度更快。
+- **移动不可用**：进行移动的上下文要求移动操作不会抛出异常，但是该操作没有被声明为 `noexcept`。
+
+移动不一定比拷贝的代价小的多，比如 `std::array` 实际是带 STL 接口的内置数组，与其他容器不同，其他容器把元素存在堆上，自身只持有一个指向堆内存的指针，移动内存时只需要移动指针，在常数时间就可以完成移动，而 `std::array` 自身存储了内容，没有这样的指针，移动或拷贝对元素逐个执行，需要线性的复杂度，移动并不比拷贝快。
+
+## Item 30: 完美转发失败的情况
+
+完美转发的含义：“转发”仅表示一个函数的形参传递给另一个函数，对于被传递的那个函数目标是能收到与执行传递的函数完全相同的对象。这规则排除了按值传递的形参，因为它们是原始调用者传入内容的**拷贝**。我们希望被转发的函数能够使用最开始传进来的那些对象。指针形参也被排除在外，因为我们不想强迫调用者传入指针。关于通常目的的转发，我们将处理引用形参。
+
+完美转发意味着不仅需转发对象，**还需要转发显著特征**：类型时左值还是右值，是 `const` 还是 `volatile`。
+
+无法完美转发的情况：
+
+- 大括号初始化
+
+```c++
+void f(const std::vector<int>& v) {}
+
+template <typename T>
+void fwd(T&& x) {
+  f(std::forward<T>(x));
+}
+
+f({1, 2, 3});    // OK，{1, 2, 3} 隐式转换为 std::vector<int>
+fwd({1, 2, 3});  // 无法推断 T，导致编译错误
+```
+
+当通过调用函数模版 `fwd` 间接调用 `f` 时，编译器不把传入给 `fwd` 的实参和 `f`  的声明中行参类型进行比较，而是推导传入 `fwd` 的实参类型，然后比较推导后的实参类型和 `f` 的形参声明类型。
+
+解决：借用 `auto` 推断出 `std::initializer_list` 类型再转发：
+```c++
+auto x = {1, 2, 3};
+fwd(x);  // OK
+```
+
+- 0 或者 NULL 作为空指针传递给模版时，会推断为 `int` 而非指针类型
+
+```c++
+void f(int*) {}
+
+template <typename T>
+void fwd(T&& x) {
+  f(std::forward<T>(x));
+}
+
+fwd(NULL);  // T 推断为 int，转发失败
+```
+
+- 只声明不定义的整型 `static const` 数据成员
+
+类内的 `static` 成员的声明不是定义，如果 `static` 声明为 `const`，则编译器会为这些成员执行 const propagation，从而不需要为它们保留内存，对整型 `static const` 成员取址可以通过编译，但会导致链接期的错误。转发引用也是引用，在编译器生成的机器代码中，引用一般会被当成指针处理。
+
+```c++
+class A {
+ public:
+  static const int n = 1;  // 仅声明
+};
+
+void f(int) {}
+
+template <typename T>
+void fwd(T&& x) {
+  f(std::forward<T>(x));
+}
+
+f(A::n);    // OK：等价于 f(1)
+fwd(A::n);  // 错误：fwd 形参是转发引用，需要取址，无法链接
+```
+
+- 重载函数名称和模版名称，要转发的函数名对应多个重载函数，则无法转发，因为模板无法从单独的函数名推断出函数类型，转发函数模版名称也会出问题，因为函数模版可以看成一批重载函数。
+
+```c++
+void g(int) {}
+void g(int, int) {}
+
+void f(void (*)(int)) {}
+
+template <typename T>
+void fwd(T&& x) {
+  f(std::forward<T>(x));
+}
+
+f(g);    // OK
+fwd(g);  // 错误：不知道转发的是哪一个函数指针
+```
+
+​	要让转发函数接受重载函数名称或模板名称，只能手动指定需要转发的重载版本或模板实例。
+
+```c++
+template <typename T>
+void g(T x) {
+  std::cout << x;
+}
+
+void f(void (*pf)(int)) { pf(1); }
+
+template <typename T>
+void fwd(T&& x) {
+  f(std::forward<T>(x));
+}
+
+using PF = void (*)(int);
+PF p = g;
+fwd(p);                   // OK
+fwd(static_cast<PF>(g));  // OK
+```
+
+- 位域：转发引用也是引用，实际上需要取址，但位域不允许直接取址，实际上接受位域实参的函数也只能收到位域值的拷贝，因此不需要使用完美转发，换用传值或传 `const` 引用即可。完美转发中也可以通过强制转换解决此问题，虽然转换的结果是一个临时对象的拷贝而非原有对象，但位域本来就无法做到真正的完美转发。
+
+```c++
+struct A {
+  int a : 1;
+  int b : 1;
+};
+
+void f(int) {}
+
+template <typename T>
+void fwd(T&& x) {
+  f(std::forward<T>(x));
+}
+
+A x{};
+f(x.a);    // OK
+fwd(x.a);  // 错误
+
+fwd(static_cast<int>(x.a));  // OK
+```
+
+# Lambda 表达式
