@@ -1,3 +1,125 @@
+# 移步现代 C++
+
+## Item 7: 区别使用 () 和 {} 创建对象
+
+值初始化方式：
+
+```c++
+int a(0);
+int b = 0;
+int c{0};
+int d = {0};  // 按 int d{0} 处理，后续讨论将忽略这种用法
+```
+
+使用等号不一定是赋值，也可能是拷贝，尤其是对于用户自定义的类型
+
+```c++
+Widget w1;              //调用默认构造函数
+Widget w2 = w1;         //不是赋值运算，调用拷贝构造函数
+w1 = w2;                //是赋值运算，调用拷贝赋值运算符（copy operator=）
+```
+
+C++ 11 使用统一初始化，大括号初始化可以方便地为容器指定初始元素：
+
+```c++
+std::vector<int> v{1, 2, 3};
+```
+
+对于不可拷贝的对象可以使用小括号或者大括号初始化，不能用“=”初始化：
+
+```c++
+std::atomic<int> ai1{ 0 };      //没问题
+std::atomic<int> ai2(0);        //没问题
+std::atomic<int> ai3 = 0;       //错误！
+```
+
+括号表达式有一个异常的特性，它不允许内置类型间隐式的变窄转换（*narrowing conversion*），使用小括号和"="的初始化不检查是否转换为变窄转换。
+
+```c++
+double x = 1.1;
+double y = 2.2;
+int a{x + y};  // 错误：大括号初始化不允许 double 到 int 的收缩转换
+int b(x + y);   // OK：double 被截断为 int
+int c = x + y;  // OK：double 被截断为 int
+```
+
+大括号初始化不存在 C++ 最令人苦恼的解析：
+
+```c++
+struct A {
+  A() { std::cout << 1; }
+};
+
+struct B {
+  B(std::string) { std::cout << 2; }
+};
+
+A a();  // 不调用 A 的构造函数，而是被解析成一个函数声明：A a();
+std::string s{"hi"};
+B b(std::string(s));  // 不构造 B，被解析成函数声明 B b(std::string)
+A a2{};               // 构造 A
+B b2{std::string(s)};  // 构造 B
+
+// C++11 之前的解决办法
+A a3;
+B b3((std::string(s)));
+```
+
+但大括号存在缺陷，只要类型转换后可以匹配，大括号初始化总会优先匹配参数类型为 `std::initializer_list` 的构造函数，即使收缩转换会导致调用错误
+
+```c++
+class A {
+ public:
+  A(int) { std::cout << 1; }
+  A(std::string) { std::cout << 2; }
+  A(std::initializer_list<int>) { std::cout << 3; }
+};
+
+A a{0};     // 3
+A b{3.14};  // 调用第三个，但会发生错误：大括号初始化不允许 double 到 int 的收缩转换
+A c{"hi"};  // 2
+```
+
+但特殊的是，参数为空的大括号初始化只会调用默认构造函数。如果想传入真正的空 `std::initializer_list`，需要额外加一层小括号或大括号
+
+```c++
+class A {
+ public:
+  A() { std::cout << 1; }
+  A(std::initializer_list<int>) { std::cout << 2; }
+};
+
+A a{};    // 1
+A b{{}};  // 2
+A c({});  // 2
+```
+
+上述问题带来的实际影响很大，`std::vector`有一个非`std::initializer_list`构造函数允许你去指定容器的初始大小，以及使用一个值填满你的容器。但它也有一个`std::initializer_list`构造函数允许你使用花括号里面的值初始化容器。如果你创建一个数值类型的`std::vector`（比如`std::vector<int>`），然后你传递两个实参，把这两个实参放到小括号和放到花括号中大不相同：
+
+```c++
+std::vector<int> v1(10, 20);    //使用非std::initializer_list构造函数
+                                //创建一个包含10个元素的std::vector，
+                                //所有的元素的值都是20
+std::vector<int> v2{10, 20};    //使用std::initializer_list构造函数
+                                //创建包含两个元素的std::vector，
+                                //元素的值为10和20
+```
+
+编写模版时，类似 `std::vector` 这种问题应当被避免，`std::initializer_list`重载不会和其他重载函数比较，它直接盖过了其它重载函数，其它重载函数几乎不会被考虑。所以如果你要加入`std::initializer_list`构造函数，请三思而后行。
+
+标准库函数`std::make_unique`和`std::make_shared` 解决方法是使用小括号，并被记录在文档中作为接口的一部分。
+
+```c++
+auto p = std::make_shared<std::vector<int>>(3, 6);
+for (auto x : *p) {
+  std::cout << x;  // 666
+}
+```
+
+## Item 8: 优先考虑 `nullptr` 而非0或 `NULL`
+
+字面值 0 本质是 int 而非指针，只有在使用指针的语境中发现 0 才会解释为空指针
+
 # 右值引用、移动语义、完美转发
 
 **移动语义**使得编译器有可能用廉价的移动操作来代替昂贵的拷贝操作。正如拷贝构造函数和拷贝赋值操作符给了你控制拷贝语义的权力，移动构造函数和移动赋值操作符也给了你控制移动语义的权力。移动语义也允许创建只可移动（*move-only*）的类型，例如 `std::unique_ptr`，`std::future` 和 `std::thread`。
@@ -642,3 +764,28 @@ fwd(static_cast<int>(x.a));  // OK
 ```
 
 # Lambda 表达式
+
+lambda 通常被用来创建闭包，该闭包仅用作函数的实参。
+
+```c++
+{
+    int x;                                  //x是局部对象
+    …
+
+    auto c1 =                               //c1是lambda产生的闭包的副本
+        [x](int y) { return x * y > 55; };
+
+    auto c2 = c1;                           //c2是c1的拷贝
+
+    auto c3 = c2;                           //c3是c2的拷贝
+    …
+}
+```
+
+`c1`，`c2`，`c3`都是*lambda*产生的闭包的副本。
+
+## Item 31: 避免使用默认捕获模式
+
+C++11 中有两种默认的捕获模式：按引用捕获和按值捕获。但默认按引用捕获模式可能会带来悬空引用的问题，而默认按值捕获模式可能会诱骗你让你以为能解决悬空引用的问题（实际上并没有），还会让你以为你的闭包是独立的（事实上也不是独立的）。
+
+按引用捕获会导致闭包中包含了对某个局部变量或者形参的引用，变量或形参只在定义 lambda 的作用域中可用。如果该 lambda 创建的闭包生命周期超过了局部变量或者形参的生命周期，那么闭包中的引用将会变成悬空引用。
