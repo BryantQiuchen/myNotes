@@ -116,9 +116,70 @@ for (auto x : *p) {
 }
 ```
 
-## Item 8: 优先考虑 `nullptr` 而非0或 `NULL`
+## Item 8: 优先考虑 `nullptr` 而非 0 或 `NULL`
 
 字面值 0 本质是 int 而非指针，只有在使用指针的语境中发现 0 才会解释为空指针
+
+## Item 9: 优先考虑别名声明而非 `typedef`
+
+一般来说别名声明和 `typedef` 做的是完全一样的事情，但声明一个函数指针时，别名声明更容易理解：
+
+```c++
+// FP是一个指向函数的指针的同义词，它指向的函数带有
+// int和const std::string&形参，不返回任何东西
+typedef void (*FP)(int, const std::string&);
+using FP = void (*)(int, const std::string&);
+```
+
+特别的，C++11 引入了别名模版，它只能使用 `using` 别名声明
+
+```c++
+template <typename T>
+using Vector = std::vector<T>;  // Vector<int> 等价于 std::vector<int>
+
+Vector<int> lw;		// 用户代码
+
+// C++11 之前的做法是在模板内部 typedef
+template <typename T>
+struct V {  // V<int>::type 等价于 std::vector<int>
+  typedef std::vector<T> type;
+};
+
+V<int>::type ll;		// 用户代码
+
+// 在其他类模板中使用这两个别名的方式
+template <typename T>
+struct A {
+  Vector<T> a;
+  typename V<T>::type b;
+};
+```
+
+C++14 提供了 C++11 所有 type traits 转换的别名声明版本
+
+```c++
+template <typename T>
+struct remove_reference {
+  using type = T;
+};
+
+template <typename T>
+struct remove_reference<T&> {
+  using type = T;
+};
+
+template <typename T>
+struct remove_reference<T&&> {
+  using type = T;
+};
+
+template <typename T>
+using remove_reference_t = typename remove_reference<T>::type;
+```
+
+## Item 10: 用 enum class 代替 enum
+
+
 
 # 右值引用、移动语义、完美转发
 
