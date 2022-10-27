@@ -177,7 +177,79 @@ template <typename T>
 using remove_reference_t = typename remove_reference<T>::type;
 ```
 
-## Item 10: 用 enum class 代替 enum
+## Item 10: 用 `enum class` 代替 `enum`
+
+一般大括号中声明的名称，只会限制在花括号之内，但对 `enum` 不成立，`enum` 成员属于 `enum` 所在的作用域，作用域内不能出现同名实例：
+
+```c++
+enum X { a, b, c };
+int a = 1;  // 错误：a 已在作用域内声明过
+```
+
+这些枚举名的名字泄漏进它们所被定义的`enum`在的那个作用域，这个事实有一个官方的术语：未限域枚举(*unscoped `enum`*)。在C++11中它们有一个相似物，限域枚举(*scoped `enum`*)，它不会导致枚举名泄漏，使用 `enum class` 表示：
+
+```c++
+enum class X { a, b, c };
+int a = 1;   // OK
+X x = X::a;  // OK
+X y = b;     // 错误
+```
+
+使用限域 `enum` 来减少命名空间的污染，这是一个足够合理使用它而不是未限域 `enum` 的理由，除此之外，在它的作用域中，枚举名是强类型，不会进行隐式转换：
+
+```C++
+enum X { a, b, c };
+X x = a;
+if (x < 3.14) {  // 不应该将枚举与浮点数进行比较，但这里合法
+}
+
+enum class Y { a, b, c };
+Y y = Y::a;
+if (x < 3.14) {  // 错误：不允许比较
+}
+if (static_cast<double>(x) < 3.14) {  // OK：enum class 允许强制转换为其他类型
+}
+```
+
+限域 `enum` 可以被前置声明，可以不指定枚举名直接声明：
+
+```c++
+enum Color;         //错误！
+enum class Color;   //没问题
+```
+
+C++11 之前不能前置声明 `enum` 的原因是，编译器为了节省内存，要在 `enum` 被使用前选择一个足够容纳成员取值的最小整型作为底层类型：
+
+```c++
+enum X { a, b, c };  // 编译器选择底层类型为 char
+enum Status {        // 编译器选择比 char 更大的底层类型
+  good = 0,
+  failed = 1,
+  incomplete = 100,
+  corrupt = 200,
+  indeterminate = 0xFFFFFFFF
+};
+```
+
+不能前置声明的一个弊端是，由于编译依赖关系，在 `enum` 中仅仅添加一个成员可能就要重新编译整个系统。如果在头文件中包含前置声明，修改 `enum class` 的定义时就不需要重新编译整个系统，如果 `enum class` 的修改不影响函数的行为，则函数的实现也不需要重新编译。
+
+C++11 支持前置声明的原因很简单，底层类型是已知的，用 `std::underlying_type` 即可获取。也可以指定枚举的底层类型，如果不指定，`enum class` 默认为 `int`，`enum` 则不存在默认类型，可以重写：
+
+```c++
+enum class Status: std::uint32_t; // Status的底层类型是std::uint32_t
+```
+
+非限域的 `enum` 在某些情况是很有用的，当牵扯到 C++11 的 `std::tuple` 的时候，能够利用到非限域 `enum` 的隐式转换时：
+
+```c++
+enum X { name, age, number };
+auto t = std::make_tuple("downdemo", 6, "42");
+auto x = std::get<name>(t);  // name 可隐式转换为 get 的模板参数类型 size_t
+```
+
+如果使用限域 `enum class` 就比较麻烦。
+
+## Item 11: 用 `=delete` 替代 `private` 作用域来禁用函数
 
 
 
