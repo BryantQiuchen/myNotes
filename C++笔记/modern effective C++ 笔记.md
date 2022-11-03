@@ -304,10 +304,6 @@ f3(g);  // T 和 ParamType 都是 void(&)(int)
 
 
 
-
-
-
-
 ## Item 3: 理解 `decltype`
 
 
