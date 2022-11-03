@@ -1,3 +1,317 @@
+
+
+# 类型推导
+
+## Item 1: 模板类型推断机制
+
+`auto` 推断的基础是模板类型推断机制，但部分特殊情况下，模板推断机制不适用于 `auto`
+
+```c++
+template <typename T>
+void f(ParamType param);  // ParamType 即 param 的类型
+```
+
+进行调用
+
+```c++
+f(expr);
+```
+
+编译期间，编译器用 expr 推断 T 和 ParamType，实际上两者通常不一致，比如
+
+```c++
+template <typename T>
+void f(const T& param);
+
+int x = 0;
+f(x);   // T 被推断为 int，ParamType 被推断为 const int&，T 的推断类型与 expr 和 ParamType 相关
+```
+
+`T`的类型推导不仅取决于 `expr` 的类型，也取决于 `ParamType` 的类型。
+
+下面的情形都基于这个模版：
+
+```c++
+template<typename T>
+void f(ParamType param);
+
+f(expr);                        // 从 expr 中推导 T 和 ParamType
+```
+
+### 情形 1: `ParamType` 不是引用或指针
+
+丢弃 `expr` 的 cv 限定符（`const` 和 `volatile`）和引用限定符，最后得到的 `expr` 类型就是 T 和 `ParamType` 类型：
+
+```c++
+// 方便写，未定义，下同
+template <typename T>
+void f(T param);
+
+int a;
+const int b;
+const int& c;
+
+int* p1;
+const int* p2;
+int* const p3;
+const int* const p4;
+
+char s1[] = "downdemo";
+const char s2[] = "downdemo";
+
+// 以下情况 T 和 ParamType 都是 int
+f(a);
+f(b);
+f(c);
+// 指针类型丢弃的是 top-level const（即指针本身的 const）
+// low-level const（即所指对象的 const）会保留
+f(p1);  // T 和 ParamType 都是 int*
+f(p2);  // T 和 ParamType 都是 const int*
+f(p3);  // T 和 ParamType 都是 int*
+f(p4);  // T 和 ParamType 都是 const int*
+// char 数组会退化为指针
+f(s1);  // T 和 ParamType 都是 char*
+f(s2);  // T 和 ParamType 都是 const char*
+```
+
+### 情形 2: `ParamType` 是引用类型
+
+如果 `expr` 的类型是引用，保留 cv 限定符，ParamType 一定是左值引用类型，ParamType 去掉引用符就是 T 的类型，即 T 一定不是引用类型。
+
+```c++
+template <typename T>
+void f(T& param);
+
+int a;
+int& b;
+int&& c;
+const int d;
+const int& e;
+
+int* p1;
+const int* p2;
+int* const p3;
+const int* const p4;
+
+char s1[] = "downdemo";
+const char s2[] = "downdemo";
+
+f(a);  // ParamType 是 int&，T 是 int
+f(b);  // ParamType 是 int&，T 是 int
+f(c);  // ParamType 是 int&，T是int
+f(d);  // ParamType 是 const int&，T 是 const int
+f(e);  // ParamType 是 const int&，T 是 const int
+// 因为 top-level const 和 low-level const 都保留
+// 对于指针只要记住 const 的情况和实参类型一样
+f(p1);  // ParamType 是 int* &，T 是 int*
+f(p2);  // ParamType 是 const int* &，T 是const int*
+f(p3);  // ParamType 是 int* const&，T 是 int* const
+f(p4);  // ParamType 是 const int* const &，T 是 const int* const
+// 数组类型对于 T& 的情况比较特殊，不会退化到指针
+f(s1);  // ParamType 是 char(&)[9]，T 是 char[9]
+f(s2);  // ParamType 是 const char(&)[9]，T 是 const char[9]
+```
+
+如果把 ParamType 从 T& 改为 const T&，区别只是 ParamType 一定为 top-level const，ParamType 去掉 top-level const 和引用符就是 T 类型，T 不一定是 top-level const 引用类型：
+
+```c++
+template <typename T>
+void f(const T& param);
+
+int a;
+int& b;
+int&& c;
+const int d;
+const int& e;
+
+int* p1;
+const int* p2;
+int* const p3;
+const int* const p4;
+
+char s1[] = "downdemo";
+const char s2[] = "downdemo";
+
+// 以下情况 ParamType 都是 const int&，T 都是 int
+f(a);
+f(b);
+f(c);
+f(d);
+f(e);
+// 数组类型类似
+f(s1);  // ParamType 是 const char(&)[9]，T 是 char[9]
+f(s2);  // ParamType 是 const char(&)[9]，T 是 char[9]
+// 对于指针只要记住，T的指针符后一定无const
+f(p1);  // ParamType 是 int* const &，T 是 int*
+f(p2);  // ParamType 是 const int* const &，T 是 const int*
+f(p3);  // ParamType 是 int* const&，T 是 int*
+f(p4);  // ParamType 是 const int* const &，T 是 const int*
+```
+
+### 情形 3: `ParamType` 是指针类型
+
+同情形 2 类似，ParamType 一定是 non-const 指针（传参时忽略 top-level const）类型，去掉指针符就是 T 的类型，即 T 一定不为指针类型
+
+```c++
+template <typename T>
+void f(T* param);
+
+int a;
+const int b;
+
+int* p1;
+const int* p2;
+int* const p3;        // 传参时与 p1 类型一致
+const int* const p4;  // 传参时与 p2 类型一致
+
+char s1[] = "downdemo";
+const char s2[] = "downdemo";
+
+f(&a);  // ParamType 是 int*，T 是 int
+f(&b);  // ParamType 是const int*，T 是 const int
+
+f(p1);  // ParamType 是 int*，T 是int
+f(p2);  // ParamType 是 const int*，T 是 const int
+f(p3);  // ParamType 是 int*，T 是 int
+f(p4);  // ParamType 是 const int*，T 是 const int
+
+// 数组类型会转为指针类型
+f(s1);  // ParamType 是 char*，T 是 char
+f(s2);  // ParamType 是 const char*，T 是 const char
+```
+
+如果 ParamType 是 const-pointer，ParamType 会多出 top-level const，T 不变
+
+```c++
+template <typename T>
+void f(T* const param);
+
+int a;
+const int b;
+
+int* p1;        // 传参时与 p3 类型一致
+const int* p2;  // 传参时与 p4 类型一致
+int* const p3;
+const int* const p4;
+
+char s1[] = "downdemo";
+const char s2[] = "downdemo";
+
+f(&a);  // ParamType 是 int* const，T 是 int
+f(&b);  // ParamType 是 const int* const，T 是 const int
+
+f(p1);  // ParamType 是 int* const，T 是 int
+f(p2);  // ParamType 是 const int* const，T 是 const int
+f(p3);  // ParamType 是 int* const，T 是 int
+f(p4);  // ParamType 是 const int* const，T 是 const int
+
+f(s1);  // ParamType 是 char* const，T 是 char
+f(s2);  // ParamType 是 const char* const，T 是 const char
+```
+
+如果 ParamType 是 pointer to const，则只有一种结果，T 一定是不带 const 的非指针类型
+
+```c++
+template <typename T>
+void f(const T* param);
+
+template <typename T>
+void g(const T* const param);
+
+int a;
+const int b;
+
+int* p1;
+const int* p2;
+int* const p3;
+const int* const p4;
+
+char s1[] = "downdemo";
+const char s2[] = "downdemo";
+
+// 以下情况ParamType 都是 const int*，T 都是 int
+f(&a);
+f(&b);
+f(p1);
+f(p2);
+f(p3);
+f(p4);
+// 以下情况ParamType 都是 const int* const，T 都是 int
+g(&a);
+g(&b);
+g(p1);
+g(p2);
+g(p3);
+g(p4);
+// 以下情况ParamType 都是 const char*，T 都是 char
+f(s1);
+f(s2);
+g(s1);
+g(s2);
+```
+
+### 情形 4: `ParamType` 是通用引用
+
+如果 expr 是左值，T 和 ParamType 都推断为左值引用，这有两点非常特殊：
+
+- 这是 T 被推断为引用的唯一情形
+- ParamType 使用右值引用语法，却被推断为左值引用
+
+如果 expr 是右值，则 ParamType 推断为右值引用类型，去掉 && 就是 T 的类型，即 T 一定不为引用类型。
+
+```c++
+template <typename T>
+void f(T&& x);
+
+int a;
+const int b;
+const int& c;
+int&& d = 1;  // d 是右值引用，也是左值，右值引用是只能绑定右值的引用而不是右值
+
+char s1[] = "downdemo";
+const char s2[] = "downdemo";
+
+f(a);  // ParamType 和 T 都是 int&
+f(b);  // ParamType 和 T 都是 const int&
+f(c);  // ParamType 和 T 都是 const int&
+f(d);  // ParamType 和 T 都是 const int&
+f(1);  // ParamType 是 int&&，T 是 int
+
+f(s1);  // ParamType 和 T 都是 char(&)[9]
+f(s2);  // ParamType 和 T 都是 const char(&)[9]
+```
+
+### 特殊: expr 是函数名
+
+```c++
+template <typename T>
+void f1(T x);
+
+template <typename T>
+void f2(T& x);
+
+template <typename T>
+void f3(T&& x);
+
+void g(int);
+
+f1(g);  // T 和 ParamType 都是 void(*)(int)
+f2(g);  // ParamType 是 void(&)(int)，T 是 void()(int)
+f3(g);  // T 和 ParamType 都是 void(&)(int)
+```
+
+## Item 2: `auto` 类型推断机制
+
+
+
+## Item 3: 理解 `decltype`
+
+
+
+## Item 4: 学会查看类型推导结果
+
+# `auto`
+
 # 移步现代 C++
 
 ## Item 7: 区别使用 () 和 {} 创建对象
@@ -251,7 +565,331 @@ auto x = std::get<name>(t);  // name 可隐式转换为 get 的模板参数类�
 
 ## Item 11: 用 `=delete` 替代 `private` 作用域来禁用函数
 
+C++11 之前的禁用拷贝的方式时将拷贝构造函数和拷贝赋值运算符声明在 `private` 作用域中
 
+```c++
+class A {
+ private:
+  A(const A&);  // 不需要定义
+  A& operator(const A&);
+};
+```
+
+C++11 中可以直接将要删除的函数用 `=delete` 声明，习惯上会声明在 `public` 作用域中，这样在使用删除的函数时，会先检查访问权再检查删除状态，出错时能得到更明确的诊断信息
+
+```c++
+class A {
+ public:
+  A(const A&) = delete;
+  A& operator(const A&) = delete;
+};
+```
+
+`private` 作用域中的函数还可以被成员和友元调用，而 `=delete` 是真正禁用了函数，无法通过任何方法调用，任何函数都可以用 `=delete` 声明，比如函数不想接受某种类型的参数，就可以删除对应类型的重载：
+
+```c++
+void f(int);
+void f(double) = delete;  // 拒绝 double 和 float 类型参数
+
+f(3.14);  // 错误
+```
+
+`=delete` 还可以禁止一些模版的实例化，假如要求一个模版仅支持原生指针：
+
+```c++
+template<typename T>
+void processPointer(T* ptr);
+```
+
+在指针的世界里有两种特殊情况。一是 `void*` 指针，因为没办法对它们进行解引用，或者加加减减等。另一种指针是 `char*`，因为它们通常代表C风格的字符串，而不是正常意义下指向单个字符的指针。这两种情况要特殊处理，在 `processPointer` 模板里面，我们假设正确的函数应该拒绝这些类型。也即是说，`processPointer` 不能被 `void*` 和 `char*` 调用。要想确保这个很容易，使用 `delete` 标注模板实例：
+
+```c++
+template<>
+void processPointer<void>(void*) = delete;
+
+template<>
+void processPointer<char>(char*) = delete;
+```
+
+如果类中有一个函数模版，可以使用 `private`（经典的 C++98 惯例）来禁止这些函数模板实例化，但是不能这样做，因为不能给特化的成员模板函数指定一个不同于主函数模板的访问级别。模版特例化必须位于一个命名空间作用域，而不是类作用域，因为它不需要一个不同的访问级别，且可以在类外被删除：
+
+```c++
+class Widget {
+public:
+    …
+    template<typename T>
+    void processPointer(T* ptr)
+    { … }
+    …
+
+};
+
+template<>                                          //还是public，
+void Widget::processPointer<void>(void*) = delete;  //但是已经被删除了
+```
+
+## Item 12: 使用 `override` 声明重写函数
+
+虚函数的重写（override）很容易出错，因为要在派生类中重写虚函数，必须满足一系列要求
+
+- 基类中必须有此虚函数
+- 基类和派生类的函数名相同（析构函数除外）
+- 函数参数类型相同
+- const 属性相同
+- 函数返回值和异常说明相同
+
+C++11 还多了一条要求，就是引用修饰符相同。引用修饰符的作用就是：指定成员函数仅在对象为左值（成员函数标记为 &）或右值（成员函数标记为 &&）时可用。
+
+对于如此多的要求，难以面面俱到，下面的代码没有任何的重写，但却可以通过编译，大部分的编译器也不会发出 warnings 信息。
+
+```c++
+struct A {
+ public:
+  virtual void f1() const;
+  virtual void f2(int x);
+  virtual void f3() &;
+  void f4() const;
+};
+
+struct B : A {
+  virtual void f1();
+  virtual void f2(unsigned int x);
+  virtual void f3() &&;
+  void f4() const;
+};
+```
+
+为了保证正确性，C++11 提供了 `override` 来标记要重写的虚函数，如果未重写就不能通过编译（`override` 只有出现在成员函数声明末尾才有意义）
+
+```c++
+struct A {
+  virtual void f1() const;
+  virtual void f2(int x);
+  virtual void f3() &;
+  virtual void f4() const;
+};
+
+struct B : A {
+  virtual void f1() const override;
+  virtual void f2(int x) override;
+  virtual void f3() & override;
+  void f4() const override;
+};
+```
+
+除此之外，还提供了另一个关键字：`final`，它可以用来制定虚函数禁止被重写：
+
+```c++
+struct A {
+  virtual void f() final;
+  void g() final;  // 错误：final 只能用于指定虚函数
+};
+
+struct B : A {
+  virtual void f() override;  // 错误：f 不可重写
+};
+```
+
+`final` 还可以用于指定某个类禁止被继承：
+
+```c++
+struct A final {};
+struct B : A {}; // 错误，A 禁止被继承
+```
+
+## Item 13: 优先考虑 const_iterator 而非 iterator
+
+STL 中 `const_iterator` 等价于指向常量的指针，都指向不能被修改的值。当我们需要一个迭代器，且不需要修改迭代器指向的值时，应当使用 `const_iterator`
+
+需要迭代器但不修改值时就应该使用 `const_iterator`，获取和使用 `const_iterator` 十分简单
+
+```C++
+std::vector<int> v{2, 3};
+auto it = std::find(std::cbegin(v), std::cend(v), 2);  // C++14
+v.insert(it, 1);
+```
+
+上述功能很容易扩展成模板
+
+```C++
+template <typename C, typename T>
+void findAndInsert(C& c, const T& x, const T& y) {
+  auto it = std::find(std::cbegin(c), std::cend(c), x);
+  c.insert(it, y);
+}
+```
+
+C++11 没有 `std::begin()` 和 `std::send()`，手动实现即可
+
+```C++
+template <typename C>
+auto cbegin(const C& c) -> decltype(std::begin(c)) {
+  return std::begin(c);  // c 是 const 所以返回 const_iterator
+}
+```
+
+## Item 14: 用 `noexcept` 标记不抛出异常的函数
+
+C++98 中，必须指出一个函数可能抛出的所有异常类型，如果函数有所改动那么 **exception specification** 也要修改，而这可能破坏代码，因为调用者可能依赖于原本的 **exception specification**。
+
+在 C++11 中，达成了共识，真正需要关心的是一个函数会不会抛出异常：一个函数要么可能抛出异常，要么绝不抛出异常，这种 maybe-or-never 形成了 C++11 **exception specification** 的基础，C++98 的 **exception specification** 在 C++17中被移除。
+
+函数是否要加上 `noexcept` 声明与接口设计相关，调用者可以查询函数的 `noexcept` 状态，查询结果将影响代码的异常安全性和执行效率。因此函数是否要声明为 `noexcept` 就和成员函数是否要声明为 `const` 一样重要，如果一个函数不抛异常却不为其声明 `noexcept`，这就是接口规范缺陷。
+
+`noexcept` 的一个额外优点是，它可以让编译器生成更好的目标代码。为了理解原因只需要考虑 C++98 和 C++11 表达函数不抛异常的区别
+
+```c++
+int f(int x) throw();   // C++98
+int f(int x) noexcept;  // C++11
+```
+
+`noexcept` 声明的函数中，如果异常传出函数，优化器不需要保持栈在运行期的展开状态，也不需要在异常逃出时，保证其中所有的对象按构造顺序的逆序析构。而声明为 `throw()` 的函数就没有这样的优化灵活性。
+
+## Item 15: 使用 `constexpr` 表示编译器常量
+
+`constexpr` 用于对象时就是一个加强版的 `const`，表面看 `constexpr` 表示的值是 `const`，且在编译器已知，但用于函数则有不同的意义。编译期已知的值可能被放进只读内存，这对嵌入式开发是一个很重要的语法特性，`constexpr` 在调用时如果传入的编译期常量，则产出编译期常量，传入运行期才知道的值，则产出运行期值。
+
+## Item 16: 使用 `std::mutex` 或 `std::atomic` 保证 `const` 成员函数线程安全
+
+`const` 成员函数不会修改成员变量，即对变量进行只读操作，但是即使是只读，函数也不是线程安全的，假设有一个表示多项式的类，它包含一个返回根的 `const` 成员函数：
+
+```c++
+class Polynomial {
+ public:
+  std::vector<double> roots() const {
+    if (!roots_are_valid_) {
+      ... // 计算 root_vals_
+      roots_are_valid_ = true;
+    }
+    return root_vals_;
+  }
+
+ private:
+  mutable bool roots_are_valid_{false};
+  mutable std::vector<double> root_vals_{};
+};
+```
+
+从概念上讲，`roots` 不改变它所操作的 `Polynomial` 对象，但是作为缓存的一部分，它也许会改变 `roots_vals_` 和 `roots_are_valid` 的值。假设此时有两个线程对同一个对象调用成员函数，虽然函数声明为 `const`，但由于函数内部修改了数据成员，就可能产生数据竞争，最简单的方法是引入 `std::mutex`：
+
+```c++
+class Polynomial {
+ public:
+  std::vector<double> roots() const {
+    std::lock_guard<std::mutex> lk{m_};
+    if (!roots_are_valid_) {
+      ... // 计算 root_vals_
+      roots_are_valid_ = true;
+    }
+    return root_vals_;
+  }
+
+ private:
+  mutable std::mutex m_;
+  mutable bool roots_are_valid_{false};
+  mutable std::vector<double> root_vals_{};
+};
+```
+
+对一些简单的情况，使用原子变量 `std::atomic` 开销更低（取决于机器以及 `std::mutex` 的实现）
+
+```c++
+class Point {
+ public:
+  double distance_from_origin() const noexcept {
+    ++call_count_;  // 计算调用次数
+    return std::sqrt((x_ * x_) + (y_ * y_));
+  }
+
+ private:
+  mutable std::atomic<unsigned> call_count_{0};
+  double x_;
+  double y_;
+};
+```
+
+因为原子变量 `std::atomic` 开销更低，容易想到用多个原子变量来进同步：
+
+```c++
+class A {
+ public:
+  int f() const {
+    if (flag_) {
+      return res_;
+    } else {
+      auto x = expensive_computation1();
+      auto y = expensive_computation2();
+      res_ = x + y;   // 1
+      flag_ = true;  // 2
+      return res_;
+    }
+  }
+
+ private:
+  mutable std::atomic<bool> flag_{false};
+  mutable std::atomic<int> res_;
+};
+```
+
+这样做可行，但如果多个线程同时观察到标记值为 false，每个线程都要继续进行运算，这个标记反而没起到作用，造成重复运算。
+
+先设置标记再计算可以消除这个问题（交换1和2的顺序），但会引起一个更大的问题：假设线程1刚设置好标记，线程2正好检查到标记值为 true 并直接返回数据值，接着线程1继续计算结果，这样线程2的返回值就是错误的。
+
+因此，同步多个变量或内存区，最好还是使用 `std::mutex`
+
+```c++
+class A {
+ public:
+  int f() const {
+    std::lock_guard<std::mutex> lk{m_};
+    if (flag_) {
+      return res_;
+    } else {
+      auto x = expensive_computation1();
+      auto y = expensive_computation2();
+      res_ = x + y;
+      flag_ = true;
+      return res_;
+    }
+  }
+
+ private:
+  mutable std::mutex m_;
+  mutable bool flag_{false};
+  mutable int res_;
+};
+```
+
+## Item 17: 理解特殊成员函数的生成
+
+特殊成员函数是指 C++ 自己生成的函数，C++98 有四个：默认构造函数，析构函数，拷贝构造函数，拷贝赋值运算符，这些函数仅在需要时生成，比如某个代码使用它们但是它们没有在类中声明。
+
+C++11 的特殊成员函数多了两个：移动构造函数和移动赋值运算符：
+
+```c++
+struct A {
+  A(A&& rhs);             // 移动构造函数
+  A& operator=(A&& rhs);  // 移动赋值运算符
+};
+```
+
+移动操作同样会在需要时生成，执行的是对 non-static 成员的移动操作，另外它们也会对基类部分执行移动操作。
+
+- 两个拷贝操作是独立的（拷贝构造函数和拷贝复制运算符）：声明一个不会限制编译器生成另一个。
+
+- 两个移动操作不是相互独立的。如果你声明了其中一个，编译器就不再生成另一个。理由是如果声明了移动构造函数，可能意味着实现上与编译器默认按成员移动的移动构造函数有所不同，从而可以推断移动赋值操作也应该与默认行为不同。
+
+- 显式声明拷贝操作（即使声明为 =delete）会阻止自动生成移动操作（但声明为 =default 不阻止生成）。理由类似上条，声明拷贝操作可能意味着默认的拷贝方式不适用，从而推断移动操作也应该会默认行为不同。
+- 声明移动操作（构造或赋值）使得编译器禁用拷贝操作。（禁用的是自动生成的拷贝操作，对用户声明的拷贝操作不受影响）
+- C++11 规定，显式声明析构函数会阻止生成移动操作。这个规定源于 Rule of Three，即两种拷贝函数和析构函数应该一起声明。这个规则的推论是，如果声明了析构函数，则说明默认的拷贝操作也不适用，但 C++98 中没有重视这个推论，因此仍可以生成拷贝操作，而在 C++11 中为了保持不破坏遗留代码，保留了这个规则。
+
+所以仅当下面条件成立时才会生成移动操作（当需要时）：
+
+- 类中没有拷贝操作
+- 类中没有移动操作
+- 类中没有用户定义的析构
+
+# 智能指针
 
 # 右值引用、移动语义、完美转发
 
